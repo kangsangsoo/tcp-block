@@ -5,7 +5,8 @@
 #include <libnet.h> // 
 
 #include <algorithm>
-#include <ifstream>
+#include <fstream>
+#include "mac.h"
 using namespace std;
 
 
@@ -18,7 +19,7 @@ void usage(void) {
 struct Param {
 	char* dev{0};
 	char* pattern{0};
-    uint8_t my_mac[6] {0};
+    Mac my_mac;
 
 	bool parse(int argc, char* argv[]) {
         if(argc != 3) return false;
@@ -36,6 +37,7 @@ struct Param {
         }
         string tmp;
 	    fin >> tmp;
+        my_mac = tmp;
 	    fin.close();
         return true;
 	}
@@ -75,8 +77,9 @@ protected:
     libnet_tcp_hdr tcp;
     unsigned char* payload;
 
+public:
     Packet() {
-
+        
     }
 
     Packet(libnet_ethernet_hdr* eth_, libnet_ipv4_hdr* ip_, libnet_tcp_hdr* tcp_, int dir, int type) {
@@ -85,7 +88,8 @@ protected:
         if(dir == BACKWARD && type == FIN) {
             // eth
             // smac = me
-            eth.ether_shost =
+            
+            eth.ether_shost = param.my_mac;
             // dmac = 받은 패킷의 smac
 
             // ip
@@ -101,7 +105,7 @@ protected:
         free(payload);
     }
 
-}
+};
 #pragma pack(pop)
 
 int main(int argc, char* argv[]) {
@@ -110,9 +114,9 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-
     cout << param.pattern << endl;
     cout << param.dev << endl;
+    cout << string(param.my_mac) << endl;
         
     char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle = pcap_open_live(param.dev, BUFSIZ, 1, 1, errbuf);
