@@ -65,10 +65,19 @@ char * strnstr(const char *s, const char *find, size_t slen)
 }
 
 #define FIN 1
-#define RST 2
-#define FORWARD 3
-#define BACKWARD 4
+#define RST 4
+#define FORWARD 1
+#define BACKWARD -1
 
+// 재정의함.
+struct libnet_ethernet_hdr
+{
+    Mac  ether_dhost;/* destination ethernet address */
+    Mac  ether_shost;/* source ethernet address */
+    uint16_t ether_type;                 /* protocol */
+};
+
+#define MSG "HTTP/1.0 302 Redirect\r\nLocation: http://warning.or.kr\r\n"
 #pragma pack(push, 1)
 class Packet{
 protected:
@@ -88,21 +97,58 @@ public:
         if(dir == BACKWARD && type == FIN) {
             // eth
             // smac = me
-            
-            eth.ether_shost = param.my_mac;
+            eth.ether_shost = param.my_mac; 
             // dmac = 받은 패킷의 smac
+            eth.ether_dhost = eth_->ether_shost;
 
+            eth.ether_type = eth_->ether_type;
+            
             // ip
+            memcpy(&ip, ip_, sizeof(ip));
+
+            // len = ip ~ tcp + payload
+            ip.ip_len = ip.ip_len + strlen(MSG);
+
+            // til = 128
+            ip.ip_ttl = 128;
+
+            // sip, dip
+            // backward는 기존의 것을 swap하면 된다.
+            ip.ip_src = ip_->ip_dst;
+            ip.ip_dst = ip_->ip_src;
 
 
-            // tcp    
+            // tcp
+            memcpy(&tcp, tcp_, sizeof(tcp));
+
+            // port
+            // sprot <-> dport
+            tcp.th_sport = tcp_->th_dport;
+            tcp.th_dport = tcp_->th_sport;
+
+            // seq
+
+            // ack
+
+            // hlen
+            // 기존이랑 같음
+
+            // flag
+            // FIN은 1
+            // RST는 4
+
+            // payload
+            payload = new unsigned char[strlen(MSG) + 1];
+            memcpy(payload, MSG, strlen(MSG));
+
+            
         }
 
 
     }
 
     ~Packet() {
-        free(payload);
+        delete[] payload;
     }
 
 };
