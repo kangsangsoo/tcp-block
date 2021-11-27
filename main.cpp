@@ -71,6 +71,8 @@ int main(int argc, char* argv[]) {
     while(1) {
         int res = pcap_next_ex(handle, &pkheader, &packet); // res는 패킷 길이
 
+        int len = pkheader->len;
+
         if(res == 0) continue;
         if (res == PCAP_ERROR || res == PCAP_ERROR_BREAK) {
 			fprintf(stderr, "pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
@@ -78,50 +80,76 @@ int main(int argc, char* argv[]) {
 		}
 
         // 이더넷 - IP - TCP <- libnet 헤더
+        #define IPv4 0x0800
+        #define TCP 6
+        
+        
         libnet_ethernet_hdr* eth_hdr = (libnet_ethernet_hdr*)packet;
+        if(eth_hdr->ether_type != htons(IPv4)) continue;
+        
         libnet_ipv4_hdr* ip_hdr = (libnet_ipv4_hdr*)(packet+14);
-        libnet_tcp_hdr* tcp_hdr = (libnet_tcp_hdr*)(ip_hdr+(ip_hdr->ip_hl <<2));
+        
+        // tcp인지 체크
+        if(ip_hdr->ip_p != TCP) continue;
 
+        libnet_tcp_hdr* tcp_hdr = (libnet_tcp_hdr*)((size_t)ip_hdr + (ip_hdr->ip_hl << 2));
+
+        
         // + payload
         // TCP 포트 확인
         // HTTP:80 
-        if(tcp_hdr->th_dport == 80 || tcp_hdr->th_sport== 80) {
-            const char* tcp_payload = (const char*)(tcp_hdr + (tcp_hdr->th_off<<2));
+        if(tcp_hdr->th_dport == htons(80) || tcp_hdr->th_sport== htons(80)) {
+            const char* tcp_payload = (const char*)((size_t)tcp_hdr + (tcp_hdr->th_off<<2));
             
             // tcp payload에서 "Host: " 찾고
-            char* host_ptr = strnstr(tcp_payload, "Host:", res - ((char*)tcp_payload - (char*)packet));
+            char* host_ptr = strnstr(tcp_payload, "Host:", len - ((char*)tcp_payload - (char*)packet));
             // host ptr 길이가 5 아니면 6
             if(host_ptr == NULL) continue;
+            //cout << string(host_ptr) << endl;
 
             if(host_ptr[5] == ' ') host_ptr += 6;
             else host_ptr += 5;
-
+            //cout << param.pattern+6 << endl;
+            
             // "\r\n" 찾아서 Host 비교
-            char* crlf_ptr = strnstr(host_ptr, "\r\n", res - ((char*)host_ptr - (char*)packet));
+            char* crlf_ptr = strnstr(host_ptr, "\r\n", len - ((char*)host_ptr - (char*)packet));
 
             if(crlf_ptr == NULL) continue;
             int host_len = crlf_ptr - host_ptr;
+            cout << host_len << endl;
             
-            if(strncmp(param.pattern, host_ptr, strlen(param.pattern)) != 0) continue;
+            if(strncmp(param.pattern+6, host_ptr, strlen(param.pattern+6)) != 0) continue;
 
             // 처리해줄 코드
             
             // 디버깅 코드
-            cout << host_ptr << endl;
+            cout << "match"<< endl;
+
+            // backward는 RST
+            
+            // forward는 FIN
         } 
 
         // HTTPS: 443
-        if(tcp_hdr->th_dport == 443 || tcp_hdr->th_sport== 443) {
-            const char* tcp_payload = (const char*)(tcp_hdr + (tcp_hdr->th_off<<2));
-            int tcp_len = res - ((char*)tcp_payload - (char*)packet);
+        if(tcp_hdr->th_dport == htons(443) || tcp_hdr->th_sport== htons(443)) {
+            const char* tcp_payload = (const char*)((size_t)tcp_hdr + (tcp_hdr->th_off<<2));
+
+            int tcp_len = len - ((size_t)tcp_payload - (size_t)packet);
+
+            if(tcp_len == 0) continue;
             
-            auto res = search(tcp_payload, tcp_payload + tcp_len, param.pattern, param.pattern + strlen(param.pattern));
+           
+            
+            auto res = search(tcp_payload, tcp_payload + tcp_len, param.pattern+6, param.pattern + 6 + strlen(param.pattern+6));
 
-            if(res == tcp_payload + tcp_len) continue;
-
+            if(res == (tcp_payload + tcp_len)) continue;
             // 처리
+            cout << "match" << endl;
             
         }
+        
+        
+
 
         // HTTP면 payload에서 HOST: ~~ 찾고
 
@@ -142,6 +170,8 @@ int main(int argc, char* argv[]) {
     // HTTPS는 RST
 
     //
+
+    // 
 
 
 }
