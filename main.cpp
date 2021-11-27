@@ -5,7 +5,7 @@
 #include <libnet.h> // 
 
 #include <algorithm>
-
+#include <ifstream>
 using namespace std;
 
 
@@ -14,17 +14,33 @@ void usage(void) {
     cout << "sample : tcp-block wlan0 Host: test.gilgil.net\n";
 }
 
+
 struct Param {
 	char* dev{0};
 	char* pattern{0};
+    uint8_t my_mac[6] {0};
 
 	bool parse(int argc, char* argv[]) {
         if(argc != 3) return false;
 		dev = argv[1];
         pattern = argv[2];
+        // my mac 찾는
+        // 리눅스의 경우
+	    // /sys/class/net/[dev]/address
+	    ifstream fin;
+	    string path = "/sys/class/net/" + string(dev) +"/address";
+	    fin.open(path);
+        if (fin.fail()) {
+		    cerr << "Error: " << strerror(errno);
+            return false;
+        }
+        string tmp;
+	    fin >> tmp;
+	    fin.close();
         return true;
 	}
 } param;
+
 
 char * strnstr(const char *s, const char *find, size_t slen)
 {
@@ -46,6 +62,47 @@ char * strnstr(const char *s, const char *find, size_t slen)
 	return ((char *)s);
 }
 
+#define FIN 1
+#define RST 2
+#define FORWARD 3
+#define BACKWARD 4
+
+#pragma pack(push, 1)
+class Packet{
+protected:
+    libnet_ethernet_hdr eth;
+    libnet_ipv4_hdr ip;
+    libnet_tcp_hdr tcp;
+    unsigned char* payload;
+
+    Packet() {
+
+    }
+
+    Packet(libnet_ethernet_hdr* eth_, libnet_ipv4_hdr* ip_, libnet_tcp_hdr* tcp_, int dir, int type) {
+        // FIN 이면서 Backward
+        
+        if(dir == BACKWARD && type == FIN) {
+            // eth
+            // smac = me
+            eth.ether_shost =
+            // dmac = 받은 패킷의 smac
+
+            // ip
+
+
+            // tcp    
+        }
+
+
+    }
+
+    ~Packet() {
+        free(payload);
+    }
+
+}
+#pragma pack(pop)
 
 int main(int argc, char* argv[]) {
     if(!param.parse(argc, argv)) {
@@ -127,6 +184,7 @@ int main(int argc, char* argv[]) {
 
             // backward는 RST
             
+
             // forward는 FIN
         } 
 
