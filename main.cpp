@@ -77,6 +77,19 @@ struct libnet_ethernet_hdr
     uint16_t ether_type;                 /* protocol */
 };
 
+uint16_t checksum(uint32_t sip, uint32_t dip, uint8_t reserved, uint8_t protocol, uint16_t len) {
+    
+    
+    // warp around
+    
+    // 2바이트씩
+
+    
+
+
+
+}
+
 #define MSG "HTTP/1.0 302 Redirect\r\nLocation: http://warning.or.kr\r\n"
 #pragma pack(push, 1)
 class Packet{
@@ -127,19 +140,31 @@ public:
             tcp.th_dport = tcp_->th_sport;
 
             // seq
-
+            // 원래 패킷의 ack
+            tcp.th_seq = tcp_->th_ack;
             // ack
-
+            // 원래 패킷의 seq + 원래 tcp 데이터 길이
+            // ip
+            tcp.th_ack = tcp_->th_seq + (ntohs(ip_->ip_len) - (ip_->ip_hl << 2) - (tcp_->th_off << 2));
             // hlen
+            
             // 기존이랑 같음
 
             // flag
             // FIN은 1
             // RST는 4
+            tcp.th_flags = FIN;
 
             // payload
             payload = new unsigned char[strlen(MSG) + 1];
             memcpy(payload, MSG, strlen(MSG));
+
+            // TCP checksum
+            // sip, dip, reserved, ip-protocol, tcp length
+            // 4 4 1 1 2
+            // 2 2 2 2 2
+            
+            tcp.th_sum = 
 
             
         }
@@ -233,6 +258,9 @@ int main(int argc, char* argv[]) {
             cout << "match"<< endl;
 
             // backward는 RST
+            Packet packet(eth_hdr, ip_hdr, tcp_hdr, BACKWARD, FIN);
+
+            //
             
 
             // forward는 FIN
