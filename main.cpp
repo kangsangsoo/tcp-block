@@ -78,20 +78,26 @@ struct libnet_ethernet_hdr
 };
 
 uint16_t checksum(uint32_t sip, uint32_t dip, uint8_t reserved, uint8_t protocol, uint16_t len) {
-    
-    
+    uint16_t pseudo_hdr[6];
+    memcpy(pseudo_hdr, &sip, sizeof(sip));
+    memcpy(pseudo_hdr, &dip, sizeof(dip));
+    memcpy(pseudo_hdr, &reserved, sizeof(reserved));
+    memcpy(pseudo_hdr, &protocol, sizeof(protocol));
+    memcpy(pseudo_hdr, &len, sizeof(len));
+
     // warp around
-    
-    // 2바이트씩
+    uint32_t sum = 0;
 
-    
-
-
-
+    for(int i = 0; i < 6; i++) {
+        sum += pseudo_hdr[i]; 
+    }    
+    sum = (sum & 0xffff) + (sum >> 16);
+    return ~(uint16_t)sum; 
 }
 
 #define MSG "HTTP/1.0 302 Redirect\r\nLocation: http://warning.or.kr\r\n"
 #pragma pack(push, 1)
+
 class Packet{
 protected:
     libnet_ethernet_hdr eth;
