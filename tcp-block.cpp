@@ -6,14 +6,15 @@
 
 #include <algorithm>
 #include <fstream>
+
 #include "mac.h"
+#include "ethhdr.h"
+#include "iphdr.h"
+#include "tcphdr.h"
+
 using namespace std;
 
 
-void usage(void) {
-    cout << "syntax : tcp-block <interface> <pattern>\n";
-    cout << "sample : tcp-block wlan0 Host: test.gilgil.net\n";
-}
 
 
 struct Param {
@@ -25,9 +26,7 @@ struct Param {
         if(argc != 3) return false;
 		dev = argv[1];
         pattern = argv[2];
-        // my mac 찾는
-        // 리눅스의 경우
-	    // /sys/class/net/[dev]/address
+
 	    ifstream fin;
 	    string path = "/sys/class/net/" + string(dev) +"/address";
 	    fin.open(path);
@@ -38,11 +37,17 @@ struct Param {
         string tmp;
 	    fin >> tmp;
         my_mac = tmp;
+
 	    fin.close();
         return true;
 	}
 } param;
 
+
+void usage(void) {
+    cout << "syntax : tcp-block <interface> <pattern>\n";
+    cout << "sample : tcp-block wlan0 Host: test.gilgil.net\n";
+}
 
 char * strnstr(const char *s, const char *find, size_t slen)
 {
@@ -61,6 +66,7 @@ char * strnstr(const char *s, const char *find, size_t slen)
 		} while (strncmp(s, find, len) != 0);
 		s--;
 	}
+
 	return ((char *)s);
 }
 
@@ -68,14 +74,6 @@ char * strnstr(const char *s, const char *find, size_t slen)
 #define RST 4
 #define FORWARD 1
 #define BACKWARD -1
-
-// 재정의함.
-struct libnet_ethernet_hdr
-{
-    Mac  ether_dhost;/* destination ethernet address */
-    Mac  ether_shost;/* source ethernet address */
-    uint16_t ether_type;                 /* protocol */
-};
 
 uint16_t checksum(uint32_t sip, uint32_t dip, uint8_t reserved, uint8_t protocol, uint16_t len) {
     uint16_t pseudo_hdr[6];
@@ -104,21 +102,18 @@ protected:
     libnet_ipv4_hdr ip;
     libnet_tcp_hdr tcp;
     unsigned char* payload;
+    int length;
 
 public:
-    Packet() {
-        
-    }
-
     Packet(libnet_ethernet_hdr* eth_, libnet_ipv4_hdr* ip_, libnet_tcp_hdr* tcp_, int dir, int type) {
         // FIN 이면서 Backward
         
         if(dir == BACKWARD && type == FIN) {
             // eth
             // smac = me
-            eth.ether_shost = param.my_mac; 
+            //eth.ether_shost = param.my_mac; 
             // dmac = 받은 패킷의 smac
-            eth.ether_dhost = eth_->ether_shost;
+            //eth.ether_dhost = eth_->ether_shost;
 
             eth.ether_type = eth_->ether_type;
             
@@ -170,7 +165,7 @@ public:
             // 4 4 1 1 2
             // 2 2 2 2 2
             
-            tcp.th_sum = 
+            //tcp.th_sum = 
 
             
         }
@@ -222,49 +217,41 @@ int main(int argc, char* argv[]) {
         #define TCP 6
         
         
-        libnet_ethernet_hdr* eth_hdr = (libnet_ethernet_hdr*)packet;
-        if(eth_hdr->ether_type != htons(IPv4)) continue;
+        // libnet_ethernet_hdr* eth_hdr = (libnet_ethernet_hdr*)packet;
+        EthHdr* eth_hdr = (EthHdr*)packet;
         
-        libnet_ipv4_hdr* ip_hdr = (libnet_ipv4_hdr*)(packet+14);
+        if(eth_hdr->type_ != htons(IPv4)) continue;
         
-        // tcp인지 체크
-        if(ip_hdr->ip_p != TCP) continue;
+        // libnet_ipv4_hdr* ip_hdr = (libnet_ipv4_hdr*)(packet+14);
+        IpHdr* ip_hdr = (IpHdr*)(packet+14);
 
-        libnet_tcp_hdr* tcp_hdr = (libnet_tcp_hdr*)((size_t)ip_hdr + (ip_hdr->ip_hl << 2));
+        // tcp인지 체크
+        if(ip_hdr->p_ != TCP) continue;
+
+        // libnet_tcp_hdr* tcp_hdr = (libnet_tcp_hdr*)((size_t)ip_hdr + (ip_hdr->ip_hl << 2));
+        TcpHdr* tcp_hdr = (TcpHdr*)((size_t)ip_hdr + (ip_hdr->hl_ << 2));
+
 
         
         // + payload
         // TCP 포트 확인
         // HTTP:80 
-        if(tcp_hdr->th_dport == htons(80) || tcp_hdr->th_sport== htons(80)) {
-            const char* tcp_payload = (const char*)((size_t)tcp_hdr + (tcp_hdr->th_off<<2));
+        if(tcp_hdr->dport_ == htons(80) || tcp_hdr->sport_== htons(80)) {
+            const char* tcp_payload = (const char*)((size_t)tcp_hdr + (tcp_hdr->hlen_<<2));
+            int tcp_len = len - ((size_t)tcp_payload - (size_t)packet);
             
-            // tcp payload에서 "Host: " 찾고
-            char* host_ptr = strnstr(tcp_payload, "Host:", len - ((char*)tcp_payload - (char*)packet));
-            // host ptr 길이가 5 아니면 6
-            if(host_ptr == NULL) continue;
-            //cout << string(host_ptr) << endl;
 
-            if(host_ptr[5] == ' ') host_ptr += 6;
-            else host_ptr += 5;
-            //cout << param.pattern+6 << endl;
-            
-            // "\r\n" 찾아서 Host 비교
-            char* crlf_ptr = strnstr(host_ptr, "\r\n", len - ((char*)host_ptr - (char*)packet));
+            auto res = search(tcp_payload, tcp_payload + tcp_len, param.pattern, param.pattern + strlen(param.pattern));
 
-            if(crlf_ptr == NULL) continue;
-            int host_len = crlf_ptr - host_ptr;
-            cout << host_len << endl;
-            
-            if(strncmp(param.pattern+6, host_ptr, strlen(param.pattern+6)) != 0) continue;
+            if(res == (tcp_payload + tcp_len)) continue;
+            // pattern을 찾도록 하자.
 
-            // 처리해줄 코드
             
             // 디버깅 코드
             cout << "match"<< endl;
 
             // backward는 RST
-            Packet packet(eth_hdr, ip_hdr, tcp_hdr, BACKWARD, FIN);
+            //Packet packet(eth_hdr, ip_hdr, tcp_hdr, BACKWARD, FIN);
 
             //
             
@@ -273,8 +260,8 @@ int main(int argc, char* argv[]) {
         } 
 
         // HTTPS: 443
-        if(tcp_hdr->th_dport == htons(443) || tcp_hdr->th_sport== htons(443)) {
-            const char* tcp_payload = (const char*)((size_t)tcp_hdr + (tcp_hdr->th_off<<2));
+        if(tcp_hdr->dport_ == htons(443) || tcp_hdr->sport_== htons(443)) {
+            const char* tcp_payload = (const char*)((size_t)tcp_hdr + (tcp_hdr->hlen_<<2));
 
             int tcp_len = len - ((size_t)tcp_payload - (size_t)packet);
 
@@ -282,7 +269,7 @@ int main(int argc, char* argv[]) {
             
            
             
-            auto res = search(tcp_payload, tcp_payload + tcp_len, param.pattern+6, param.pattern + 6 + strlen(param.pattern+6));
+            auto res = search(tcp_payload, tcp_payload + tcp_len, param.pattern, param.pattern + strlen(param.pattern));
 
             if(res == (tcp_payload + tcp_len)) continue;
             // 처리
