@@ -75,7 +75,7 @@ char * strnstr(const char *s, const char *find, size_t slen)
 #define FORWARD 1
 #define BACKWARD -1
 
-uint16_t checksum(uint32_t sip, uint32_t dip, uint8_t reserved, uint8_t protocol, uint16_t len) {
+uint16_t tcp_checksum(uint32_t sip, uint32_t dip, uint8_t reserved, uint8_t protocol, uint16_t len) {
     uint16_t pseudo_hdr[6];
     memcpy(pseudo_hdr, &sip, sizeof(sip));
     memcpy(pseudo_hdr, &dip, sizeof(dip));
@@ -93,92 +93,33 @@ uint16_t checksum(uint32_t sip, uint32_t dip, uint8_t reserved, uint8_t protocol
     return ~(uint16_t)sum; 
 }
 
-#define MSG "HTTP/1.0 302 Redirect\r\nLocation: http://warning.or.kr\r\n"
-#pragma pack(push, 1)
+uint16_t ip_checksum(IpHdr ip_hdr) {
+    uint32_t sum = 0;
+    uint16_t chunks[10];
+    ip_hdr.sum_ = 0;
+    memcpy(chunks, &ip_hdr, 20);
 
-class Packet{
-protected:
-    libnet_ethernet_hdr eth;
-    libnet_ipv4_hdr ip;
-    libnet_tcp_hdr tcp;
-    unsigned char* payload;
-    int length;
-
-public:
-    Packet(libnet_ethernet_hdr* eth_, libnet_ipv4_hdr* ip_, libnet_tcp_hdr* tcp_, int dir, int type) {
-        // FIN 이면서 Backward
-        
-        if(dir == BACKWARD && type == FIN) {
-            // eth
-            // smac = me
-            //eth.ether_shost = param.my_mac; 
-            // dmac = 받은 패킷의 smac
-            //eth.ether_dhost = eth_->ether_shost;
-
-            eth.ether_type = eth_->ether_type;
-            
-            // ip
-            memcpy(&ip, ip_, sizeof(ip));
-
-            // len = ip ~ tcp + payload
-            ip.ip_len = ip.ip_len + strlen(MSG);
-
-            // til = 128
-            ip.ip_ttl = 128;
-
-            // sip, dip
-            // backward는 기존의 것을 swap하면 된다.
-            ip.ip_src = ip_->ip_dst;
-            ip.ip_dst = ip_->ip_src;
-
-
-            // tcp
-            memcpy(&tcp, tcp_, sizeof(tcp));
-
-            // port
-            // sprot <-> dport
-            tcp.th_sport = tcp_->th_dport;
-            tcp.th_dport = tcp_->th_sport;
-
-            // seq
-            // 원래 패킷의 ack
-            tcp.th_seq = tcp_->th_ack;
-            // ack
-            // 원래 패킷의 seq + 원래 tcp 데이터 길이
-            // ip
-            tcp.th_ack = tcp_->th_seq + (ntohs(ip_->ip_len) - (ip_->ip_hl << 2) - (tcp_->th_off << 2));
-            // hlen
-            
-            // 기존이랑 같음
-
-            // flag
-            // FIN은 1
-            // RST는 4
-            tcp.th_flags = FIN;
-
-            // payload
-            payload = new unsigned char[strlen(MSG) + 1];
-            memcpy(payload, MSG, strlen(MSG));
-
-            // TCP checksum
-            // sip, dip, reserved, ip-protocol, tcp length
-            // 4 4 1 1 2
-            // 2 2 2 2 2
-            
-            //tcp.th_sum = 
-
-            
-        }
-
-
+    for(int i = 0; i < 10; i++) {
+        sum += chunks[i];
     }
 
-    ~Packet() {
-        delete[] payload;
-    }
+    sum = (sum & 0xffff) + (sum >> 16);
+    return ~(uint16_t)sum;
+}
 
-};
-#pragma pack(pop)
+unsigned char* packet(EthHdr& eth_hdr, IpHdr& ip_hdr, TcpHdr& tcp_hdr, unsigned char* payload, int payload_len) {
+    void* ptr = malloc(sizeof(eth_hdr) + sizeof(ip_hdr) + sizeof(tcp_hdr) + payload_len);
+    
+    // memcpy
+    memcpy(ptr, &eth_hdr, sizeof(eth_hdr));
+    memcpy(ptr+sizeof(eth_hdr), &ip_hdr, sizeof(ip_hdr));
+    memcpy(ptr+sizeof(eth_hdr)+sizeof(ip_hdr), &tcp_hdr, sizeof(tcp_hdr));
+    memcpy(ptr+sizeof(eth_hdr)+sizeof(ip_hdr)+sizeof(tcp_hdr), payload, payload_len);
+
+    return (unsigned char*)ptr;
+}
+
+const unsigned char* MSG = "HTTP/1.0 302 Redirect\r\nLocation: http://warning.or.kr\r\n";
 
 int main(int argc, char* argv[]) {
     if(!param.parse(argc, argv)) {
