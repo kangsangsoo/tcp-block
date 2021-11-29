@@ -15,6 +15,16 @@ struct TcpHdr {
     uint16_t win_;      // window size
     uint16_t sum_;      // checksum
     uint16_t urp_;      // urgent pointer
+
+    void test(uint16_t sport, uint16_t dport, uint32_t seq, uint32_t ack, uint8_t hlen, uint8_t flags, uint16_t sum) {
+        this->sport_ = sport;
+        this->dport_ = dport;
+        this->seq_ = seq;
+        this->ack_ = ack;
+        this->hlen_ = hlen;
+        this->flags_ = flags;
+        this->sum_ = sum;
+    }
 };
 
 #pragma pack(pop)

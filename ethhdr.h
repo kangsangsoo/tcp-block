@@ -12,6 +12,11 @@ struct EthHdr final {
 	Mac dmac() { return dmac_; }
 	Mac smac() { return smac_; }
 	uint16_t type() { return ntohs(type_); }
+	
+	void test(Mac dmac, Mac smac) {
+		this->dmac_ = dmac;
+		this->smac_ = smac;
+	}
 
 	// Type(type_)
 	enum: uint16_t {

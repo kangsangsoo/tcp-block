@@ -33,6 +33,7 @@ struct Ip final {
 		return prefix >= 0xE0 && prefix < 0xF0;
 	}
 
+
 protected:
 	uint32_t ip_;
 };
