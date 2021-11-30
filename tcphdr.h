@@ -16,7 +16,7 @@ struct TcpHdr {
     uint16_t sum_;      // checksum
     uint16_t urp_;      // urgent pointer
 
-    void test(uint16_t sport, uint16_t dport, uint32_t seq, uint32_t ack, uint8_t hlen, uint8_t flags, uint16_t sum) {
+    void set(uint16_t sport, uint16_t dport, uint32_t seq, uint32_t ack, uint8_t hlen, uint8_t flags, uint16_t sum) {
         this->sport_ = sport;
         this->dport_ = dport;
         this->seq_ = seq;

@@ -13,7 +13,7 @@ struct EthHdr final {
 	Mac smac() { return smac_; }
 	uint16_t type() { return ntohs(type_); }
 	
-	void test(Mac dmac, Mac smac) {
+	void set(Mac dmac, Mac smac) {
 		this->dmac_ = dmac;
 		this->smac_ = smac;
 	}

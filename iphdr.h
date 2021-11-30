@@ -17,7 +17,7 @@ struct IpHdr {
     uint16_t sum_;    // checksum
     Ip src_, dst_;  // source, destination
 
-    void test(uint8_t hl, uint16_t len, uint16_t off, uint8_t ttl, Ip src, Ip dst) {
+    void set(uint8_t hl, uint16_t len, uint16_t off, uint8_t ttl, Ip src, Ip dst) {
         this->hl_ = hl;
         this->len_ = len;
         this->off_ = off;
