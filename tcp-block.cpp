@@ -94,7 +94,7 @@ uint16_t tcp_checksum(uint32_t sip, uint32_t dip, uint8_t reserved, uint8_t prot
 #define BACKWARD -1
 char MSG[56] = "HTTP/1.1 302 Redirect\r\nLocation: http://warning.or.kr\r\n";
 
-int send_packet(pcap_t* handle, EthHdr eth_hdr, IpHdr ip_hdr, TcpHdr tcp_hdr, unsigned char* payload, int payload_len, int direction, int type) {
+int send_packet(pcap_t* handle, EthHdr eth_hdr, IpHdr ip_hdr, TcpHdr tcp_hdr, unsigned char* payload, int payload_len, int direction, int flag) {
     
     int org_packet_tcp_data_length = ntohs(ip_hdr.len_) - (ip_hdr.hl_ << 2) - (tcp_hdr.hlen_ << 2);
 
@@ -105,14 +105,14 @@ int send_packet(pcap_t* handle, EthHdr eth_hdr, IpHdr ip_hdr, TcpHdr tcp_hdr, un
         tcp_hdr.sum_ = tcp_checksum(ip_hdr.src_, ip_hdr.dst_, 0, ip_hdr.p_, htons(20 + payload_len), tcp_hdr, payload, payload_len);
     }
 
-    else if(direction == BACKWARD && type == FIN+ACK) {
+    else if(direction == BACKWARD && flag == FIN+ACK) {
         eth_hdr.set(eth_hdr.smac_, param.my_mac);
         ip_hdr.set(5, htons(20+20+payload_len), ip_hdr.off_, 137, ip_hdr.dst_, ip_hdr.src_);
         tcp_hdr.set(tcp_hdr.dport_, tcp_hdr.sport_, tcp_hdr.ack_, tcp_hdr.seq_ + htonl(org_packet_tcp_data_length), 5, FIN + ACK, 0);
         tcp_hdr.sum_ = tcp_checksum(ip_hdr.src_, ip_hdr.dst_, 0, ip_hdr.p_, htons(20 + payload_len), tcp_hdr, payload, payload_len);
     }
 
-    else if(direction == BACKWARD && type == RST+ACK) {
+    else if(direction == BACKWARD && flag == RST+ACK) {
         eth_hdr.set(eth_hdr.smac_, param.my_mac);
         ip_hdr.set(5, htons(20+20), ip_hdr.off_, 137, ip_hdr.dst_, ip_hdr.src_);
         tcp_hdr.set(tcp_hdr.dport_, tcp_hdr.sport_, tcp_hdr.ack_, tcp_hdr.seq_ + htonl(org_packet_tcp_data_length), 5, RST + ACK, 0);
