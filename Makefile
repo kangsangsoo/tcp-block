@@ -1,4 +1,4 @@
-LDLIBS = -lpcap -lnet
+LDLIBS = -lpcap
 
 all: tcp-block
 
