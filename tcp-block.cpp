@@ -86,20 +86,6 @@ uint16_t tcp_checksum(uint32_t sip, uint32_t dip, uint8_t reserved, uint8_t prot
     return ~(uint16_t)sum; 
 }
 
-uint16_t ip_checksum(IpHdr ip_hdr) {
-    uint32_t sum = 0;
-    uint16_t* chunks = (uint16_t*) &ip_hdr;
-    ip_hdr.sum_ = 0;
-
-    for(int i = 0; i < 10; i++) {
-        sum += chunks[i];
-    }
-
-    sum = (sum & 0xffff) + (sum >> 16);
-    sum = (sum & 0xffff) + (sum >> 16);
-    return (uint16_t)~sum;
-}
-
 
 #define FIN 1
 #define RST 4
