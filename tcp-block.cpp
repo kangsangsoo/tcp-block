@@ -44,27 +44,6 @@ void usage(void) {
     cout << "sample : tcp-block wlan0 Host: test.gilgil.net\n";
 }
 
-char * strnstr(const char *s, const char *find, size_t slen)
-{
-	char c, sc;
-	size_t len;
-
-	if ((c = *find++) != '\0') {
-		len = strlen(find);
-		do {
-			do {
-				if (slen-- < 1 || (sc = *s++) == '\0')
-					return (NULL);
-			} while (sc != c);
-			if (len > slen)
-				return (NULL);
-		} while (strncmp(s, find, len) != 0);
-		s--;
-	}
-
-	return ((char *)s);
-}
-
 uint16_t tcp_checksum(uint32_t sip, uint32_t dip, uint8_t reserved, uint8_t protocol, uint16_t tcp_len, TcpHdr tcp_hdr, unsigned char* payload, int payload_len) {
     struct Pseudo{
         uint32_t sip_;
